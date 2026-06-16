@@ -1,0 +1,28 @@
+{
+  "name": "backlog-grinder",
+  "version": "0.1.0",
+  "description": "Model-agnostic loop-engineering harness: drain a finite backlog against a real repo behind a hybrid coverage + guards + gate checker. No LLM required.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "backlog-grind": "./bin/grind.mjs"
+  },
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "bin/",
+    "scripts/",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test scripts/*.test.mjs",
+    "test:cov": "node --test --experimental-test-coverage scripts/*.test.mjs",
+    "self-coverage": "node scripts/self-coverage.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

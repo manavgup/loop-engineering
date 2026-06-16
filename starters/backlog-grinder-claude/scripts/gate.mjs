@@ -1,8 +1,18 @@
 import { exec } from 'node:child_process';
 
+// The gate runs in a clean-ish env: strip the parent's own test-runner context so a gate that
+// itself shells out to `node --test` (the common case) behaves as a standalone run even when
+// the harness is invoked from within a test runner. Without this, NODE_TEST_CONTEXT leaks into
+// the child and the nested runner reports to the parent instead of emitting its report.
+function gateEnv() {
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  return env;
+}
+
 export function runGate(command, cwd, { timeoutMs = 600000 } = {}) {
   return new Promise((resolve) => {
-    exec(command, { cwd, timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
+    exec(command, { cwd, env: gateEnv(), timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
       const output = `${stdout}${stderr}`.trim();
       // Distinguish a real test failure (red) from "couldn't run" — spawn error,
       // timeout (err.killed), or shell 127 (command not found). Infra errors must NOT

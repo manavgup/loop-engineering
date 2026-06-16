@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkCoverage } from './coverage.mjs';
+import { parseLcov } from './coverage-adapter.mjs';
 
 const SCRIPTS_ABS = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: SCRIPTS_ABS, encoding: 'utf8' }).trim();
@@ -46,18 +47,6 @@ try {
 }
 
 // 2. lcov -> { file: Set<executedLine> }. A DA:line,count with count>0 means executed.
-function parseLcov(text) {
-  const cov = {};
-  let cur = null;
-  for (const line of text.split('\n')) {
-    if (line.startsWith('SF:')) { cur = line.slice(3).trim(); cov[cur] = cov[cur] || new Set(); }
-    else if (line.startsWith('DA:') && cur) {
-      const [ln, count] = line.slice(3).split(',');
-      if (Number(count) > 0) cov[cur].add(Number(ln));
-    } else if (line === 'end_of_record') cur = null;
-  }
-  return cov;
-}
 const cov = parseLcov(readFileSync(lcovPath, 'utf8'));
 
 // 3. Diff the scripts dir and run the backbone against it.
