@@ -47,6 +47,7 @@ test('PROOF 3: budget halts mid-queue after one item and checkpoints', async () 
   await runQueue(queue, { deps, state: { items: {} }, gateCmd: 'true', allow: ['src/x.py'], maxAttempts: 1 });
   assert.equal(queue[0].status, 'done');    // first item completed (one commit)
   assert.equal(queue[1].status, 'pending'); // budget halted before the second
+  assert.equal(queue[1].attempts, 0);       // q2 was never touched (discriminates halt from crash)
   assert.equal(persisted, true);            // checkpoint written
 });
 
@@ -58,4 +59,17 @@ test('PROOF 4: resume skips an already-done item; reconcile handles a crash-comm
   const queue = [item({ id: 'q1' }), item({ id: 'q2' })];
   await runQueue(queue, { deps, state, gateCmd: 'true', allow: ['src/x.py'], maxAttempts: 1 });
   assert.deepEqual(ran, ['q2']); // q1 skipped on resume, only q2 processed
+});
+
+test('PROOF 5: a green gate with NO coverage map halts the run AND restores the tree (§7)', async () => {
+  let restored = 0;
+  // green gate, but the gate emitted NO coverage map → CONFIG error, run-level halt.
+  // §7 invariant: this is a non-commit path, so the implementer's diff must be reverted.
+  const deps = baseDeps({
+    runGate: async () => ({ passed: true, output: 'ok', infraError: false }), // no `coverage` field
+    git: { diff: async () => DIFF, commit: async () => {}, restore: async () => { restored += 1; }, head: async () => 'sha1' },
+  });
+  const r = await runItem(item(), { deps, state: { items: {} }, gateCmd: 'true', allow: ['src/x.py'], maxAttempts: 1 });
+  assert.equal(r.status, 'blocked-coverage-config');
+  assert.equal(restored, 1); // §7: the non-commit path reverted the working tree
 });

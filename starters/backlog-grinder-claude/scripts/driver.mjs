@@ -48,7 +48,11 @@ export async function runItem(item, { deps, state, gateCmd, allow = [], deny = [
   // NO coverage map is a CONFIG error — halt the run, don't abandon 1,192 items one by one.
   let coverage = { ok: true, uncovered: [] };
   if (gate.passed) {
-    if (gate.coverage === undefined) { item.status = 'blocked-coverage-config'; return item; }
+    if (gate.coverage === undefined) {
+      await deps.git.restore(process.cwd()); // §7: every non-commit path reverts the tree
+      item.status = 'blocked-coverage-config';
+      return item;
+    }
     coverage = checkCoverage(diff, gate.coverage);
   }
   const hardOk = gate.passed && guards.ok && coverage.ok;
