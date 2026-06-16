@@ -49,3 +49,48 @@ export function appendLesson(lessons, lesson) {
   if (lessons.some((l) => l.pattern === lesson.pattern)) return lessons;
   return [...lessons, lesson];
 }
+
+// Scoped, retractable lessons (§3.5). A lesson is { id, pattern, fix, confidence,
+// sourceItemId, status, category }. NOT a naive global append-only log: retrieval is scoped
+// to the item's category (a lesson with no category is global), ranked by confidence, and
+// capped to a context budget — this bounds both the poisoning vector and unbounded growth.
+const LESSON_CAP = 5;
+const EVICT_THRESHOLD = 0;
+const RETRACT_DROP = 1;
+
+export function relevantLessons(store, item, cap = LESSON_CAP) {
+  return store
+    .filter((l) => l.status !== 'evicted')
+    .filter((l) => !l.category || l.category === item.category)
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+    .slice(0, cap);
+}
+
+// Retraction: a lesson blamed for a failure loses confidence and is evicted below the
+// threshold. Mutates the shared store in place (the store is shared mutable state, §10).
+export function retractLesson(store, lessonId) {
+  const l = store.find((x) => x.id === lessonId);
+  if (!l) return store;
+  l.confidence = (l.confidence ?? 0) - RETRACT_DROP;
+  if (l.confidence <= EVICT_THRESHOLD) l.status = 'evicted';
+  return store;
+}
+
+// Adapter the driver consumes as deps.lessons: relevant(item) injects the scoped lessons and
+// remembers which it applied to the item; retract(item) retracts the lesson(s) last applied
+// to that item (the driver calls it when the item fails attributably). The adapter just wraps
+// the pure functions above and tracks per-item application — same design, no disagreement.
+export function makeLessonsAdapter(store, { cap = LESSON_CAP } = {}) {
+  const lastApplied = {};
+  return {
+    relevant(item) {
+      const ls = relevantLessons(store, item, cap);
+      lastApplied[item.id] = ls.map((l) => l.id);
+      return ls;
+    },
+    retract(item) {
+      for (const id of lastApplied[item.id] || []) retractLesson(store, id);
+      return store;
+    },
+  };
+}

@@ -12,3 +12,17 @@ export function runGate(command, cwd, { timeoutMs = 600000 } = {}) {
     });
   });
 }
+
+// Flake handling (§3.4): a red gate is re-run ONCE before it is trusted. Two agreeing reds →
+// trusted red. Red-then-green disagreement → flaky (park for human review, NOT a failed
+// attempt — a flaky gate must not burn good work). A green first run is trusted immediately
+// (no re-run). Infra errors are passed through and are never marked flaky.
+export async function runGateChecked(command, cwd, opts = {}) {
+  const first = await runGate(command, cwd, opts);
+  if (first.infraError) return { ...first, flaky: false };
+  if (first.passed) return { ...first, flaky: false };
+  const second = await runGate(command, cwd, opts);
+  if (second.infraError) return { ...second, flaky: false };
+  if (second.passed) return { ...second, flaky: true }; // disagreement → flaky
+  return { ...second, flaky: false };                    // confirmed (trusted) red
+}
