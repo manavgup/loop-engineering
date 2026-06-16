@@ -59,7 +59,7 @@ export async function runGrind(config) {
   const runGateWithCoverage = async (cmd, cwd) => {
     const g = await runGate(cmd, cwd);
     if (g.passed && !g.infraError) {
-      try { g.coverage = loadCoverage({ format: coverage.format, file: covFileAbs }); }
+      try { g.coverage = loadCoverage({ format: coverage.format, file: covFileAbs, repoCwd }); }
       catch { /* no coverage artifact -> undefined -> driver halts with a config error */ }
     }
     return g;

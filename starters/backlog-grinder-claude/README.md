@@ -73,9 +73,17 @@ item and prompt are passed via environment, so you can plug in anything:
 | `BG_PROMPT` | base prompt + prior failure feedback ("don't repeat these approaches") |
 
 ```jsonc
-// an LLM CLI:        "implementerCmd": "claude -p \"$BG_PROMPT\""
+// headless Claude:        "implementerCmd": "sh examples/claude-implementer.sh"
+// any LLM CLI:            "implementerCmd": "claude -p \"$BG_PROMPT\""
 // a deterministic script: "implementerCmd": "./fix.sh \"$BG_ITEM_PATH\""
 ```
+
+`examples/claude-implementer.sh` is a ready-to-use headless-Claude implementer (it turns the
+`BG_*` env into a focused prompt and runs `claude -p --permission-mode acceptEdits`). The
+implementer only *edits*; the harness runs the gate — so the implementer can be best-effort and
+a bad edit is reverted and retried. `examples/python.config.json` is a pytest/coverage.py
+template. Coverage paths are resolved against the cobertura `<source>` root, so both `--cov=.`
+and `--cov=mypkg` work.
 
 The **verifier** is optional and also pluggable (`verifierCmd`): it sees the staged diff at
 `$BG_DIFF_FILE` and `$BG_WARNINGS`; exit 0 = APPROVE, non-zero = REJECT (its output is the

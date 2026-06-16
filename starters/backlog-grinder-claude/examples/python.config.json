@@ -1,0 +1,14 @@
+{
+  "_comment": "Template: grind a Python repo with pytest + coverage.py, fixed by headless Claude. Copy to the target repo, adjust paths, and run: backlog-grind --config python.config.json --repo .",
+  "backlogPath": "BACKLOG.md",
+  "gateCmd": "python3 -m pytest -q --cov=. --cov-report=xml:cov.xml",
+  "coverage": { "format": "cobertura", "file": "cov.xml" },
+  "implementerCmd": "sh examples/claude-implementer.sh",
+  "verifierCmd": null,
+  "allow": ["src/", "mypkg/"],
+  "deny": ["src/auth/", "**/migrations/"],
+  "maxAttempts": 3,
+  "projectName": "My Python Service",
+  "budgetSeconds": 0,
+  "stopFile": ".grind-stop"
+}
