@@ -1,6 +1,6 @@
-# Backlog-grinder harness — convenience targets.
-# Scoped to this starter so it stays out of the upstream repo's root conventions.
-# Run from anywhere: `make -C starters/backlog-grinder-claude <target>` or from this dir.
+# Backlog-grinder harness — convenience targets. Lives at the repo root so a bare
+# `make <target>` works from here. (If this fork is ever PR'd upstream, drop or relocate
+# this file — a root Makefile is a repo-wide convention the upstream maintainer didn't choose.)
 #
 # `make test` is the canonical way to run the suite — it uses the version-proof glob form,
 # so you never hit the `node --test <dir>/` directory-positional gap on Node < 24.
