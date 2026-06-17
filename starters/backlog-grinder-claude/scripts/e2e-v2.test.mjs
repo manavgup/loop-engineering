@@ -61,6 +61,23 @@ test('PROOF 4: resume skips an already-done item; reconcile handles a crash-comm
   assert.deepEqual(ran, ['q2']); // q1 skipped on resume, only q2 processed
 });
 
+test('PROOF 6: a coverage rejection is fed back into the retry prompt, and a covering retry commits', async () => {
+  let attempt = 0;
+  let sawCoverageFeedback = false;
+  const deps = baseDeps({
+    implementer: async (it, prompt) => { attempt += 1; if (/Coverage gap/i.test(prompt)) sawCoverageFeedback = true; return { ok: true }; },
+    // attempt 1: changed line 11 NOT executed; attempt 2 (after the implementer adds a test): executed
+    runGate: async () => ({ passed: true, output: 'ok', infraError: false, coverage: { 'src/x.py': new Set(attempt >= 2 ? [11] : [99]) } }),
+  });
+  const it = item();
+  let r = await runItem(it, { deps, state: { items: {} }, gateCmd: 'true', allow: ['src/x.py'], maxAttempts: 3 });
+  assert.equal(r.status, 'pending');            // attempt 1 rejected by coverage-of-change
+  assert.equal(r.failures[0].coverageOk, false);
+  r = await runItem(it, { deps, state: { items: {} }, gateCmd: 'true', allow: ['src/x.py'], maxAttempts: 3 });
+  assert.equal(sawCoverageFeedback, true);      // the retry prompt named the uncovered lines
+  assert.equal(r.status, 'done');               // the covering retry commits
+});
+
 test('PROOF 5: a green gate with NO coverage map halts the run AND restores the tree (§7)', async () => {
   let restored = 0;
   // green gate, but the gate emitted NO coverage map → CONFIG error, run-level halt.

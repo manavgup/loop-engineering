@@ -3,7 +3,7 @@ import { checkCoverage } from './coverage.mjs';
 import { buildRetryPrompt, isRepeatedFailure } from './feedback.mjs';
 import { markDone, saveItem, pendingItems, rehydrate } from './state.mjs';
 
-const BASE = 'Fix ONLY this finding with the smallest diff. Do not refactor unrelated code, delete or weaken tests, or touch denylist paths. Stop when done.';
+const BASE = 'Fix ONLY this finding with the smallest diff. Do not refactor unrelated code, delete or weaken tests, or touch denylist paths. If your change alters behavior, ensure a test executes the changed lines — add or extend a test if none does; a behavior change with no covering test will be rejected. Stop when done.';
 const TERMINAL = ['done', 'abandoned', 'parked-infra', 'parked-flaky', 'blocked-coverage-config'];
 
 function withLessons(prompt, lessons) {

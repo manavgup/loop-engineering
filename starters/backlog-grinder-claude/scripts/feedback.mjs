@@ -35,8 +35,21 @@ export function buildRetryPrompt(item, basePrompt, failures = []) {
   if (failures.length) {
     lines.push('Your previous attempts failed. Do NOT repeat them. Try a different approach.');
     for (const f of failures) {
-      lines.push(`--- Attempt ${f.attempt} failed; gate output: ---`);
-      lines.push((f.gateOutput || '').slice(0, 1500));
+      // Surface the FULL rejection reason, not just gate output: a coverage or scope
+      // rejection leaves the gate green, so an implementer told only "gate: ok" has no idea
+      // why it was reverted and loops blindly.
+      lines.push(`--- Attempt ${f.attempt} failed ---`);
+      if (f.gateOutput) {
+        lines.push('Gate output:');
+        lines.push((f.gateOutput || '').slice(0, 1500));
+      }
+      if (f.guardViolations && f.guardViolations.length) {
+        lines.push(`Guard violations (the diff went out of scope or weakened tests): ${f.guardViolations.join('; ')}`);
+      }
+      if (f.coverageUncovered && f.coverageUncovered.length) {
+        lines.push(`Coverage gap — these changed lines were NOT executed by any test: ${f.coverageUncovered.join(', ')}.`);
+        lines.push('Add or extend a test that exercises the changed code, or the change will be rejected again.');
+      }
     }
     lines.push('');
   }

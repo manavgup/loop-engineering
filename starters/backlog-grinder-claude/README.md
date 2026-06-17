@@ -102,6 +102,11 @@ verifier (only if all hard checks pass)
   otherwise  → revert (reset --hard + clean -fd) → record failure → retry or abandon
 ```
 
+On a retry the prompt names exactly why the last attempt was rejected — gate output, guard
+violations, and **uncovered changed lines** ("these lines were not executed by any test; add or
+extend a test"). The base prompt also tells the implementer up front that a behavior change with
+no covering test will be rejected, so behavior-change findings (fix + test) work without looping.
+
 A repeated failure (same gate+guards+coverage fingerprint) abandons early instead of burning
 all attempts. The flake re-run prevents a transient red from throwing away good work.
 
