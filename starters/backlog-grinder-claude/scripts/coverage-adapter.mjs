@@ -30,6 +30,21 @@ export function parseCobertura(text) {
   return cov;
 }
 
+// Every line the report LISTS (hit OR miss) — the set of lines the coverage tool considers
+// executable. Lines absent from this set (comments, blanks, multi-line-literal continuations,
+// docstrings) are NON-executable and can never be "executed by a test".
+export function parseCoberturaExecutable(text) {
+  const exec = {};
+  let cur = null;
+  const tokenRe = /<class\b[^>]*\bfilename="([^"]+)"|<line\b[^>]*\bnumber="(\d+)"/g;
+  let m;
+  while ((m = tokenRe.exec(text))) {
+    if (m[1] !== undefined) { cur = m[1]; exec[cur] = exec[cur] || new Set(); }
+    else if (cur && m[2] !== undefined) exec[cur].add(Number(m[2]));
+  }
+  return exec;
+}
+
 // Cobertura filenames are relative to a <sources><source> root (e.g. coverage.py `--cov=mathy`
 // yields filename="ops.py" under source=".../mathy"). To match git-diff paths (repo-relative),
 // resolve each filename against a source root and relativize to repoCwd.
@@ -55,12 +70,32 @@ function remapToRepo(flat, sources, repoCwd) {
   return out;
 }
 
+// Coverage-of-change requires every CHANGED line to be executed, but trace-based coverage
+// (coverage.py/cobertura) only reports executable statements — a whole-file diff's docstrings,
+// blank lines, and multi-line-literal continuations are absent and would be flagged "uncovered"
+// even though they can never be executed. (V8/lcov is range-based and covers them implicitly,
+// so this only bit cobertura targets.) Mark every NON-executable source line as covered so
+// coverage-of-change gates only genuine statements; executable-but-unhit lines stay gaps.
+function augmentNonExecutable(hit, execMap, repoCwd) {
+  for (const [file, execLines] of Object.entries(execMap)) {
+    let total;
+    try { total = readFileSync(resolve(repoCwd, file), 'utf8').split('\n').length; }
+    catch { continue; } // source unreadable -> best-effort, leave hit-only
+    const covered = hit[file] || (hit[file] = new Set());
+    for (let n = 1; n <= total; n++) if (!execLines.has(n)) covered.add(n);
+  }
+}
+
 // repoCwd (optional) makes cobertura paths repo-relative so they match git-diff paths.
 export function loadCoverage({ format, file, repoCwd }) {
   const text = readFileSync(file, 'utf8');
   if (format === 'lcov') return parseLcov(text);
   if (format === 'cobertura' || format === 'coveragepy') {
-    return remapToRepo(parseCobertura(text), coberturaSources(text), repoCwd);
+    const sources = coberturaSources(text);
+    const hit = remapToRepo(parseCobertura(text), sources, repoCwd);
+    // With the repo on disk, treat non-executable changed lines as satisfied (see above).
+    if (repoCwd) augmentNonExecutable(hit, remapToRepo(parseCoberturaExecutable(text), sources, repoCwd), repoCwd);
+    return hit;
   }
   throw new Error(`unknown coverage format: ${format}`);
 }
